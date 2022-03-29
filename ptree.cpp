@@ -8,6 +8,8 @@
 
 #include "ptree.h"
 #include "hue_utils.h" // useful functions for calculating hue averages
+#include <iostream>
+#include <list>
 
 using namespace cs221util;
 using namespace std;
@@ -17,34 +19,33 @@ typedef pair<unsigned int, unsigned int> pairUI;
 
 
 HSLAPixel average(PNG& image, pair<unsigned int, unsigned int> ul, unsigned int w, unsigned int h){
-    double totalhX = 0;
-    double totalhY = 0;
+  double totalhX = 0;
+  double totalhY = 0;
 
-    double totals = 0;
-    double totall = 0;
-    double totala = 0;
+  double totals = 0;
+  double totall = 0;
+  double totala = 0;
 
-    for (unsigned x = ul.first; x < ul.first+w; x++) {
-        for (unsigned y = ul.second; y < ul.second+h; y++) {
-            HSLAPixel *pixel = image.getPixel(x, y);
-            totalhX = totalhX + Deg2X(pixel->h);
-            totalhY = totalhY + Deg2Y(pixel->h);
+  for (unsigned x = ul.first; x < ul.first+w; x++) {
+      for (unsigned y = ul.second; y < ul.second+h; y++) {
+          HSLAPixel *pixel = image.getPixel(x, y);
+          totalhX = totalhX + Deg2X(pixel->h);
+          totalhY = totalhY + Deg2Y(pixel->h);
 
-            totals = totals + pixel->s;
-            totall = totall + pixel->l;
-            totala = totala + pixel->a;
+          totals = totals + pixel->s;
+          totall = totall + pixel->l;
+          totala = totala + pixel->a;
 
 
-        }
-    }
+      }
+  }
 
-    totalhX = totalhX/w;
-    totalhY = totalhY/h;
-    HSLAPixel x = HSLAPixel( XY2Deg(totalhX,totalhY), totals/(w*h), totall/(w*h), totala/(w*h) );
-    
-    
+  HSLAPixel x = HSLAPixel( XY2Deg(totalhX,totalhY), totals/(w*h), totall/(w*h), totala/(w*h) );
+  
+  
 
-    return x;
+  return x;
+
 
 }
 
@@ -60,8 +61,21 @@ HSLAPixel average(PNG& image, pair<unsigned int, unsigned int> ul, unsigned int 
 *  You may want to add a recursive helper function for this!
 *  POST: all nodes allocated into the heap have been released.
 */
+void deshelper(Node* root){
+  Node* n = root;
+  if(n->A!=nullptr){
+    deshelper(n->A);
+  }
+  if(n->B!=nullptr){
+    deshelper(n->B);
+  }
+  delete n;
+  root = nullptr;
+}
+
 void PTree::Clear() {
   // add your implementation below
+  deshelper(this->root);
   
 }
 
@@ -74,29 +88,25 @@ void PTree::Clear() {
 *  POST:  This PTree is a physically separate copy of the other PTree.
 */
 
-Node* copyhelper(Node* root,Node* otherroot){
-  if(otherroot->A!=nullptr){
-    root->A=copyhelper(root->A,otherroot->A);
-  }
-  else{
-    root->A=nullptr;
-  }
+Node* copyhelper(Node* root){
+  Node* new_root;
+  if(root!=NULL){
+    new_root=new Node;
+    new_root->width=root->width;
+    new_root->height=root->height;
+    new_root->upperleft=root->upperleft;
+    new_root->avg=root->avg;
+    new_root->A=copyhelper(root->A);
+    new_root->B=copyhelper(root->B);
+  } else return NULL;
+  return new_root;
   
-  if(otherroot->B!=nullptr){
-    root->B=copyhelper(root->B,otherroot->B);
-  }
-  else{
-    root->B=nullptr;
-  }
-  
-  return otherroot;
 }
 
 
 void PTree::Copy(const PTree& other) {
   // add your implementation below
-  root=copyhelper(root,other.root);
-  
+  root=copyhelper(other.root);
 }
 
 /*
@@ -110,6 +120,7 @@ void PTree::Copy(const PTree& other) {
 *  PARAM:  h - height of the currently building Node's image region
 *  RETURN: pointer to the fully constructed Node
 */
+
 Node* PTree::BuildNode(PNG& im, pair<unsigned int, unsigned int> ul, unsigned int w, unsigned int h) {
   // replace the line below with your implementation
   Node* curr = new Node(ul,w ,h , average(im,ul,w,h), nullptr, nullptr);
@@ -117,7 +128,6 @@ Node* PTree::BuildNode(PNG& im, pair<unsigned int, unsigned int> ul, unsigned in
   curr->width=w;
   curr->height=h;
   curr->avg= average(im,ul,w,h);
-  cout<< curr->avg.h <<"\n";
   if(!(h==1 && w==1)){
     if(h>w){
       if(h%2==1){
@@ -151,6 +161,7 @@ Node* PTree::BuildNode(PNG& im, pair<unsigned int, unsigned int> ul, unsigned in
   }
   
 }
+
 
 ////////////////////////////////
 // PTree public member functions
@@ -215,9 +226,10 @@ PTree::PTree(PNG& im) {
 */
 PTree::PTree(const PTree& other) {
   // add your implementation below
-  root=copyhelper(root,other.root);
-
+  root=copyhelper(other.root);
 }
+
+
 
 /*
 *  Assignment operator
@@ -231,27 +243,23 @@ PTree::PTree(const PTree& other) {
 */
 PTree& PTree::operator=(const PTree& other) {
   // add your implementation below
-
-  return *this;
+  if(other.root!=root){
+    deshelper(root);
+    root=copyhelper(other.root);
+    return *this;
+  }
+  else{
+    return *this;
+  }
+  
+  
 }
 
 /*
 *  Destructor
 *  Deallocates all dynamic memory associated with the tree and destroys this PTree object.
 */
-void deshelper(Node* root){
-  if(root->A!=nullptr){
-    deshelper(root->A);
-  }
-  if(root->B!=nullptr){
-    deshelper(root->B);
-  }
-  else{
-    free(root);
-    root = nullptr;
-  }
-  
-}
+
 
 
 
@@ -260,6 +268,7 @@ PTree::~PTree() {
   deshelper(this->root);
   
 }
+
 
 /*
 *  Traverses the tree and puts the leaf nodes' color data into the nodes'
@@ -272,10 +281,38 @@ PTree::~PTree() {
 *
 *  RETURN: A PNG image of appropriate dimensions and coloured using the tree's leaf node colour data
 */
+
+
+void Inorder(Node* n,PNG &ret){
+  if(n==nullptr){
+    return;
+  }else{
+    if(n->A==nullptr&&n->B==nullptr){
+      for(unsigned int i=0;i<n->width;i++){
+        for(unsigned int j=0;j<n->height;j++){
+          HSLAPixel *pixel=ret.getPixel((n->upperleft.first)+i,(n->upperleft.second)+j);
+          pixel->h=n->avg.h;
+          pixel->s=n->avg.s;
+          pixel->l=n->avg.l;
+          pixel->a=n->avg.a;
+        }
+      }
+    }
+    
+    
+    Inorder(n->A,ret);
+    Inorder(n->B,ret);
+  }
+
+}
+
 PNG PTree::Render() const {
   // replace the line below with your implementation
-  return PNG();
+  PNG ret=PNG(root->width,root->height);
+  Inorder(root,ret);
+  return ret;
 }
+
 
 /*
 *  Trims subtrees as high as possible in the tree. A subtree is pruned
@@ -293,9 +330,54 @@ PNG PTree::Render() const {
 *        within tolerance from the subtree's root colour will have their children deallocated;
 *        Each pruned subtree's root becomes a leaf node.
 */
+
+bool checkChild(Node* root,Node* root_cp,double tolerance){
+  
+  if(root->width ==1 && root->height ==1){
+      return false;
+  }
+  if(root_cp != NULL){
+      if(root->avg.dist(root_cp->avg)>tolerance){
+        return false;
+      }
+
+    return true && checkChild(root, root_cp->A,tolerance) && checkChild(root, root_cp->B,tolerance);
+  }
+  else{
+    return true;
+  }
+
+}
+void pyhelper(Node* root, double tolerance){
+  
+  if( checkChild(root,root,tolerance) ){
+    if(root->A != nullptr){
+      deshelper(root->A);
+      root->A=nullptr;
+    }
+    if(root->B != nullptr){
+      deshelper(root->B);
+      root->B=nullptr;
+    }
+  }
+  else{
+    if(root->A!=nullptr){
+      pyhelper(root->A,tolerance);
+    }
+    if(root->B!=nullptr){
+      pyhelper(root->B,tolerance);
+    }
+    
+  }
+  return;
+  
+  
+  
+}
+
 void PTree::Prune(double tolerance) {
   // add your implementation below
-  
+  pyhelper(root,tolerance);
 }
 
 /*
@@ -323,7 +405,6 @@ int Sizehelp(Node* root){
       return Sizehelp(root->B)+Sizehelp(root->A)+1;
     }
   }
-  
 }
 
 int PTree::Size() const {
@@ -338,23 +419,28 @@ int PTree::Size() const {
 *  You may want to add a recursive helper function for this!
 */
 
-// int numLe(Node* root){
-//   int num = 0;
-//   if(root->A != NULL){
-//     return (num + numLe(root->A));
-//   }
-//   if(root->B != NULL){
-//     return (num + numLe(root->B));
-//   }
-//   else{
-//     return 1;
-//   }
-
-// }
+int numLe(Node* root){
+  if(root->A==nullptr){
+    if(root->B==nullptr){
+      return 1;
+    }
+    else{
+      return numLe(root->B);
+    }
+  }
+  else{
+    if(root->B==nullptr){
+      return numLe(root->A);
+    }
+    else{
+      return numLe(root->B)+numLe(root->A);
+    }
+  }
+}
 int PTree::NumLeaves() const {
   // replace the line below with your implementation
+  return numLe(root);
   
-  return -1;
 }
 
 /*
@@ -368,8 +454,33 @@ int PTree::NumLeaves() const {
 *
 *  POST: Tree has been modified so that a rendered PNG will be flipped horizontally.
 */
+void FlipHhelper(Node* root){
+  if(root->A==NULL&&root->B==NULL){
+    return;
+  }
+  if(root->height > root->width){
+    root->A->upperleft.first = root->upperleft.first;
+    root->B->upperleft.first = root->upperleft.first;
+    FlipHhelper(root->A);
+    FlipHhelper(root->B);
+    
+  }
+  else{
+    root->A->upperleft.first = root->upperleft.first + root->B->width;
+    root->B->upperleft.first = root->upperleft.first;
+
+    Node* temp=root->A;
+    root->A=root->B;
+    root->B=temp;
+
+    FlipHhelper(root->A);
+    FlipHhelper(root->B);
+  }
+  
+}
 void PTree::FlipHorizontal() {
   // add your implementation below
+  FlipHhelper(root);
   
 }
 
@@ -384,7 +495,35 @@ void PTree::FlipHorizontal() {
 *
 *  POST: Tree has been modified so that a rendered PNG will be flipped vertically.
 */
+void FlipVhelper(Node* root){
+  if(root->A==NULL&&root->B==NULL){
+    return;
+  }
+  if(root->height > root->width){
+    root->A->upperleft.second = root->upperleft.second+ root->B->height;
+    root->B->upperleft.second = root->upperleft.second;
+
+    Node* temp=root->A;
+    root->A=root->B;
+    root->B=temp;
+
+    FlipVhelper(root->A);
+    FlipVhelper(root->B);
+    
+    
+  }
+  else{
+    root->A->upperleft.second = root->upperleft.second;
+    root->B->upperleft.second = root->upperleft.second;
+    FlipVhelper(root->A);
+    FlipVhelper(root->B);
+  }
+  
+}
+
+
 void PTree::FlipVertical() {
+  FlipVhelper(root);
   // add your implementation below
   
 }
